@@ -5,24 +5,7 @@ import numpy as np
 import cv2
 import os
 import tempfile
-from preprocess_and_enhance import process_page, find_document_edges, perspective_correction, sharpen_pdf
-
-# Function to process a PDF page
-def process_page(image):
-    # Find document edges
-    corners = find_document_edges(image)
-    if corners is not None:
-        image = perspective_correction(image, corners)
-
-    # Convert to grayscale
-    gray_image = ImageOps.grayscale(image)
-
-    # Enhance and sharpen the image
-    enhancer = ImageEnhance.Contrast(gray_image)
-    processed_image = enhancer.enhance(2.0)  # Adjust contrast
-    processed_image = processed_image.filter(ImageFilter.SHARPEN)  # Sharpen the image
-
-    return processed_image
+from preprocess_and_enhance import process_page, sharpen_pdf
 
 # Streamlit app
 def main():
@@ -59,13 +42,16 @@ def main():
             sharpen_button = st.button("Sharpen PDF")
             if sharpen_button:
                 with st.spinner("Sharpening the entire PDF..."):
-                    sharpened_pdf_path = tempfile.mktemp(suffix=".pdf")
-                    sharpen_pdf(temp_pdf_path, sharpened_pdf_path)
-                    st.success("PDF sharpened.")
-                    st.download_button(label="Download Sharpened PDF", 
-                                       data=open(sharpened_pdf_path, "rb"), 
-                                       file_name="sharpened_output.pdf", 
-                                       mime="application/pdf")
+                    with tempfile.TemporaryDirectory() as output_folder:
+                        sharpen_pdf(temp_pdf_path, output_folder)
+                        # Assuming the sharpen_pdf function saves the processed PDF in output_folder
+                        processed_pdf_path = os.path.join(output_folder, "processed_output.pdf")
+                        st.download_button(label="Download Processed PDF", 
+                                           data=open(processed_pdf_path, "rb"), 
+                                           file_name="processed_output.pdf", 
+                                           mime="application/pdf")
+                st.success("PDF sharpened.")
+
         except Exception as e:
             st.error(f"An error occurred: {e}")
 
