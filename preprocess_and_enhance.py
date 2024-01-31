@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[7]:
-
-
 import fitz  # PyMuPDF
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import os
@@ -30,7 +24,6 @@ def find_document_edges(image):
             return approx
 
 def perspective_correction(image, corners):
-    
     # Order points in clockwise manner
     rect = np.zeros((4, 2), dtype="float32")
     s = corners.sum(axis=2)
@@ -99,9 +92,7 @@ def sharpen_pdf(pdf_path, output_folder):
 
     doc.close()
 
-
-sharpen_pdf("input.pdf", "output_folder")
-
+# Removed the direct call to sharpen_pdf
 
 
 
