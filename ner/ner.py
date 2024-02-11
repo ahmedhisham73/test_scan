@@ -11,6 +11,7 @@ custom_labels = ["O", "B-job", "I-job", "B-nationality", "B-person", "I-person",
 
 def _extract_ner(text: str, model: AutoModelForTokenClassification,
                  tokenizer: AutoTokenizer, start_token: str="▁"):
+    print("Input Text:", text)  # Debug print
     tokenized_sentence = tokenizer([text], padding=True, truncation=True, return_tensors="pt")
     tokenized_sentences = tokenized_sentence['input_ids'].numpy()
 
@@ -30,6 +31,8 @@ def _extract_ner(text: str, model: AutoModelForTokenClassification,
             else:
                 grouped_tokens.append({"token": token, "label": custom_labels[label_idx]})
 
+    print("Grouped Tokens:", grouped_tokens)  # Debug print
+
     # extract entities
     ents = []
     prev_label = "O"
@@ -44,10 +47,13 @@ def _extract_ner(text: str, model: AutoModelForTokenClassification,
             
         prev_label = label
     
+    print("Extracted Entities:", ents)  # Debug print
+
     # group tokens
     ents = [{"token": "".join(rec["token"]).replace(start_token," ").strip(), "label": rec["label"]}  for rec in ents ]
 
     return ents
+
 
 
 # Function to extract names using NER model
