@@ -5,12 +5,55 @@ import nltk
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 
+custom_labels = ["O", "B-job", "I-job", "B-nationality", "B-person", "I-person", "B-location","B-time", "I-time", "B-event", "I-event", "B-organization", "I-organization", "I-location", "I-nationality", "B-product", "I-product", "B-artwork", "I-artwork"]
+
+def _extract_ner(text: str, model: AutoModelForTokenClassification,
+                 tokenizer: AutoTokenizer, start_token: str="▁"):
+    tokenized_sentence = tokenizer([text], padding=True, truncation=True, return_tensors="pt")
+    tokenized_sentences = tokenized_sentence['input_ids'].numpy()
+
+    with torch.no_grad():
+        output = model(**tokenized_sentence)
+
+    last_hidden_states = output[0].numpy()
+    label_indices = np.argmax(last_hidden_states[0], axis=1)
+    tokens = tokenizer.convert_ids_to_tokens(tokenized_sentences[0])
+    special_tags = set(tokenizer.special_tokens_map.values())
+
+    grouped_tokens = []
+    for token, label_idx in zip(tokens, label_indices):
+        if token not in special_tags:
+            if not token.startswith(start_token) and len(token.replace(start_token,"").strip()) > 0:
+                grouped_tokens[-1]["token"] += token
+            else:
+                grouped_tokens.append({"token": token, "label": custom_labels[label_idx]})
+
+    # extract entities
+    ents = []
+    prev_label = "O"
+    for token in grouped_tokens:
+        label = token["label"].replace("I-","").replace("B-","")
+        if token["label"] != "O":
+            
+            if label != prev_label:
+                ents.append({"token": [token["token"]], "label": label})
+            else:
+                ents[-1]["token"].append(token["token"])
+            
+        prev_label = label
+    
+    # group tokens
+    ents = [{"token": "".join(rec["token"]).replace(start_token," ").strip(), "label": rec["label"]}  for rec in ents ]
+
+    return ents
+
+
 # Function to extract names using NER model
 def extract_arabic_full_names(json_file_path, model, tokenizer, start_token="▁"):
     with open(json_file_path, 'r', encoding="utf-8") as json_file:
         data = json.load(json_file)
 
-    arabic_full_names = {"first accountant": None, "second accountant": None}
+    arabic_full_names = []  # Use a list to store names
 
     for entry in data:
         if "Arabic Text" in entry:
@@ -29,21 +72,15 @@ def extract_arabic_full_names(json_file_path, model, tokenizer, start_token="▁
                             current_label = "person"
                     else:
                         if current_label == "person" and current_name.count(" ") >= 2:
-                            if arabic_full_names["first accountant"] is None:
-                                arabic_full_names["first accountant"] = current_name.strip()
-                            elif arabic_full_names["second accountant"] is None:
-                                arabic_full_names["second accountant"] = current_name.strip()
-                            if arabic_full_names["first accountant"] is not None and arabic_full_names["second accountant"] is not None:
+                            arabic_full_names.append(current_name.strip())
+                            if len(arabic_full_names) >= 2:  # Stop after extracting the first 2 names
                                 return arabic_full_names
                         current_name = ""
                         current_label = None
 
                 if current_label == "person" and current_name.count(" ") >= 2:
-                    if arabic_full_names["first accountant"] is None:
-                        arabic_full_names["first accountant"] = current_name.strip()
-                    elif arabic_full_names["second accountant"] is None:
-                        arabic_full_names["second accountant"] = current_name.strip()
-                    if arabic_full_names["first accountant"] is not None and arabic_full_names["second accountant"] is not None:
+                    arabic_full_names.append(current_name.strip())
+                    if len(arabic_full_names) >= 2:  # Stop after extracting the first 2 names
                         return arabic_full_names
 
     return arabic_full_names
@@ -56,30 +93,21 @@ model = AutoModelForTokenClassification.from_pretrained(model_cp, num_labels=len
 # Specify the path to your basic_info_frame_2.json file
 json_file_path = "basic_info_frame_2.json"
 
-# Extract the first 2 unique Arabic full names from basic_info_frame_2.json
+# Extract the unique Arabic full names from basic_info_frame_2.json
 arabic_full_names = extract_arabic_full_names(json_file_path, model, tokenizer, start_token="▁")
 
-# Load existing data from extracted_info.csv
-existing_data = {}
-with open("extracted_info.csv", 'r', encoding="utf-8") as csv_file:
-    csv_reader = csv.reader(csv_file)
-    next(csv_reader)  # Skip the header row
-    for row in csv_reader:
-        existing_data[row[0]] = row[1]
+# Prepare data for CSV writing
+data_to_write = [{"Pattern Name": "First Accountant", "Extracted Data": arabic_full_names[0] if arabic_full_names else ""},
+                 {"Pattern Name": "Second Accountant", "Extracted Data": arabic_full_names[1] if len(arabic_full_names) > 1 else ""}]
 
-# Update the data with extracted names
-existing_data["first accountant"] = arabic_full_names["first accountant"]
-existing_data["second accountant"] = arabic_full_names["second accountant"]
+# Update the existing CSV file with the first and second accountants
+csv_file_path = "extracted_info.csv"
 
-# Write the updated data to the CSV file
-with open("extracted_info.csv", mode="w", encoding="utf-8", newline='') as csv_output_file:
+with open(csv_file_path, mode="a", encoding="utf-8", newline='') as csv_file:
     fieldnames = ["Pattern Name", "Extracted Data"]
-    writer = csv.DictWriter(csv_output_file, fieldnames=fieldnames)
-    writer.writeheader()
+    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
-    for pattern_name, data in existing_data.items():
-        if data:
-            writer.writerow({"Pattern Name": pattern_name, "Extracted Data": data})
+    for item in data_to_write:
+        writer.writerow(item)
 
-print("Updated data has been saved to extracted_info.csv.")
-
+print("First and second accountants extracted from basic_info_frame_2.json and saved to extracted_info.csv.")
