@@ -2,6 +2,8 @@ import json
 import csv
 from transformers import AutoTokenizer, AutoModelForTokenClassification
 import nltk
+import torch
+import numpy as np
 nltk.download('punkt')
 from nltk.tokenize import word_tokenize
 
@@ -60,6 +62,7 @@ def extract_arabic_full_names(json_file_path, model, tokenizer, start_token="▁
             text = entry.get("Arabic Text", "")
             if text.strip():
                 ents = _extract_ner(text, model, tokenizer, start_token)
+                print("Entities:", ents)
 
                 current_name = ""
                 current_label = None
@@ -95,19 +98,4 @@ json_file_path = "basic_info_frame_2.json"
 
 # Extract the unique Arabic full names from basic_info_frame_2.json
 arabic_full_names = extract_arabic_full_names(json_file_path, model, tokenizer, start_token="▁")
-
-# Prepare data for CSV writing
-data_to_write = [{"Pattern Name": "First Accountant", "Extracted Data": arabic_full_names[0] if arabic_full_names else ""},
-                 {"Pattern Name": "Second Accountant", "Extracted Data": arabic_full_names[1] if len(arabic_full_names) > 1 else ""}]
-
-# Update the existing CSV file with the first and second accountants
-csv_file_path = "extracted_info.csv"
-
-with open(csv_file_path, mode="a", encoding="utf-8", newline='') as csv_file:
-    fieldnames = ["Pattern Name", "Extracted Data"]
-    writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-    for item in data_to_write:
-        writer.writerow(item)
-
-print("First and second accountants extracted from basic_info_frame_2.json and saved to extracted_info.csv.")
+print("Extracted Arabic Full Names:", arabic_full_names)
