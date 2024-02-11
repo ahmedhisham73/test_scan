@@ -61,8 +61,9 @@ def extract_arabic_full_names(json_file_path, model, tokenizer, start_token="▁
         if "Arabic Text" in entry:
             text = entry.get("Arabic Text", "")
             if text.strip():
+                print("Processing text:", text)  # Debug print
                 ents = _extract_ner(text, model, tokenizer, start_token)
-                print("Entities:", ents)
+                print("Entities:", ents)  # Debug print
 
                 current_name = ""
                 current_label = None
