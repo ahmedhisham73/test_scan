@@ -13,10 +13,13 @@ def _extract_ner(text: str, model: AutoModelForTokenClassification,
                  tokenizer: AutoTokenizer, start_token: str="▁"):
     print("Input Text:", text)  # Debug print
     tokenized_sentence = tokenizer([text], padding=True, truncation=True, return_tensors="pt")
+    print("Tokenized Sentence:", tokenized_sentence)  # Debug print
     tokenized_sentences = tokenized_sentence['input_ids'].numpy()
 
     with torch.no_grad():
         output = model(**tokenized_sentence)
+
+    print("Model Output:", output)  # Debug print
 
     last_hidden_states = output[0].numpy()
     label_indices = np.argmax(last_hidden_states[0], axis=1)
